@@ -1,0 +1,1468 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的故事收藏</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Microsoft JhengHei", "PingFang TC", sans-serif;
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #fffaf6;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 40px);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #ff9a76 0%, #f99185 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .toolbar {
+            background: #fff5ed;
+            padding: 20px 30px;
+            border-bottom: 2px solid #ffe4d6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            flex-shrink: 0;
+        }
+
+        .tabs-container {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            flex: 1;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            background: white;
+            border: 2px solid #ffd4ba;
+            border-radius: 8px;
+            cursor: move;
+            transition: all 0.3s;
+            font-weight: 500;
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            user-select: none;
+        }
+
+        .tab.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+
+        .tab.drag-over {
+            border-color: #ff6b4a;
+            background: #ffe8e0;
+            transform: scale(1.05);
+        }
+
+        .tab:hover {
+            border-color: #ff9a76;
+            background: #fff5ed;
+        }
+
+        .tab.active {
+            background: #ff9a76;
+            color: white;
+            border-color: #ff9a76;
+        }
+
+        .tab-delete {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 12px;
+            line-height: 1;
+        }
+
+        .tab:hover .tab-delete {
+            display: none;
+        }
+
+        .tab.active .tab-delete {
+            display: none;
+        }
+
+        .tab-delete:hover {
+            background: #ff5252;
+        }
+
+        .story-count {
+            background: rgba(255, 154, 118, 0.2);
+            color: #d97555;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: bold;
+        }
+
+        .tab.active .story-count {
+            background: rgba(255, 255, 255, 0.3);
+            color: white;
+        }
+
+        .toolbar-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-export, .btn-import {
+            background: #8d6e63;
+            color: white;
+            padding: 8px 16px;
+            font-size: 0.9em;
+        }
+
+        .btn-export:hover, .btn-import:hover {
+            background: #6d4c41;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(141, 110, 99, 0.3);
+        }
+
+        #importFile {
+            display: none;
+        }
+
+        #importTxtFile {
+            display: none;
+        }
+
+        .content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .stories-list-panel {
+            width: 350px;
+            background: #fff8f3;
+            border-right: 2px solid #ffe4d6;
+            overflow-y: auto;
+            padding: 20px;
+            transition: all 0.3s;
+            flex-shrink: 0;
+        }
+
+        .stories-list-panel.compact {
+            width: 280px;
+        }
+
+        .stories-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #ffe4d6;
+        }
+
+        .list-title {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #8b5a3c;
+        }
+
+        .btn-delete-category {
+            background: #ff8a65;
+            color: white;
+            padding: 6px 14px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.3s;
+            font-family: inherit;
+        }
+
+        .btn-delete-category:hover {
+            background: #ff7043;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(255, 138, 101, 0.3);
+        }
+
+        .story-item {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            border-left: 4px solid #ff9a76;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .story-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            background: #fffbf8;
+        }
+
+        .story-item.active {
+            background: #fff0e8;
+            border-left-color: #f9845b;
+            box-shadow: 0 4px 12px rgba(255, 154, 118, 0.2);
+        }
+
+        .story-title {
+            font-size: 1.05em;
+            font-weight: bold;
+            color: #5d4037;
+            margin-bottom: 5px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .story-meta {
+            font-size: 0.8em;
+            color: #a1887f;
+            margin-bottom: 8px;
+        }
+
+        .story-preview-text {
+            font-size: 0.9em;
+            color: #8d6e63;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            line-height: 1.4;
+        }
+
+        .story-item.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+
+        .story-item.drag-over {
+            border-left-color: #ff6b4a;
+            background: #ffe8e0;
+            transform: translateX(10px) scale(1.02);
+        }
+
+        .preview-panel {
+            flex: 1;
+            padding: 40px;
+            background: #fffaf6;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .preview-panel.active {
+            display: block;
+        }
+
+        .preview-header {
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #ffe4d6;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .preview-title {
+            font-size: 2em;
+            font-weight: bold;
+            color: #5d4037;
+            line-height: 1.4;
+            flex: 1;
+        }
+
+        .preview-actions {
+            display: flex;
+            gap: 8px;
+            margin-left: 20px;
+            flex-shrink: 0;
+        }
+
+        .preview-content {
+            color: #6d4c41;
+            line-height: 2;
+            white-space: pre-wrap;
+            font-size: 1.05em;
+        }
+
+        .pagination-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #ffe4d6;
+        }
+
+        .pagination-controls button {
+            padding: 8px 20px;
+            background: #ff9a76;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.95em;
+            transition: all 0.3s;
+        }
+
+        .pagination-controls button:hover:not(:disabled) {
+            background: #ff8a65;
+            transform: translateY(-2px);
+        }
+
+        .pagination-controls button:disabled {
+            background: #d7ccc8;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .page-info {
+            color: #8d6e63;
+            font-size: 0.95em;
+            min-width: 100px;
+            text-align: center;
+        }
+
+        .list-meta {
+            font-size: 0.85em;
+            color: #a1887f;
+            margin-top: 5px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #bcaaa4;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .empty-state-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.3s;
+            font-family: inherit;
+            font-weight: 500;
+        }
+
+        .btn-edit {
+            background: #ffa726;
+            color: white;
+        }
+
+        .btn-edit:hover {
+            background: #fb8c00;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(255, 167, 38, 0.3);
+        }
+
+        .btn-delete {
+            background: #ef5350;
+            color: white;
+        }
+
+        .btn-delete:hover {
+            background: #e53935;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(239, 83, 80, 0.3);
+        }
+
+        .btn-add {
+            background: #ff9a76;
+            color: white;
+        }
+
+        .btn-add:hover {
+            background: #ff8a65;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(255, 154, 118, 0.3);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            color: #333;
+            font-weight: bold;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            font-family: inherit;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group textarea {
+            min-height: 250px;
+            resize: vertical;
+            line-height: 1.6;
+        }
+
+        .ai-assist-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .btn-ai {
+            background: #9575cd;
+            color: white;
+            padding: 8px 16px;
+            font-size: 0.9em;
+        }
+
+        .btn-ai:hover {
+            background: #7e57c2;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(149, 117, 205, 0.3);
+        }
+
+        .btn-ai:disabled {
+            background: #d1c4e9;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .ai-status {
+            font-size: 0.85em;
+            color: #9575cd;
+            margin-top: 8px;
+            font-style: italic;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .btn-primary {
+            background: #ff9a76;
+            color: white;
+            padding: 10px 20px;
+        }
+
+        .btn-primary:hover {
+            background: #ff8a65;
+        }
+
+        .btn-secondary {
+            background: #bcaaa4;
+            color: white;
+            padding: 10px 20px;
+        }
+
+        .btn-secondary:hover {
+            background: #a1887f;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📚 我的故事收藏</h1>
+            <p>管理你的故事世界</p>
+        </div>
+        
+        <div class="toolbar">
+            <div class="tabs-container" id="tabsContainer"></div>
+            <div class="toolbar-actions">
+                <button class="btn btn-export" onclick="exportCategoryAsTxt()">📦 匯出故事群</button>
+                <button class="btn btn-export" onclick="exportData()">📥 匯出資料</button>
+                <label for="importFile" class="btn btn-import" style="margin: 0; cursor: pointer;">📤 匯入資料</label>
+                <input type="file" id="importFile" accept=".json" onchange="importData(event)">
+                <label for="importTxtFile" class="btn btn-import" style="margin: 0; cursor: pointer;">📝 匯入TXT</label>
+                <input type="file" id="importTxtFile" accept=".txt" onchange="importTxtFile(event)">
+                <button class="btn btn-add" onclick="openAddCategoryModal()">+ 新增故事群</button>
+                <button class="btn btn-add" onclick="openAddStoryModal()">+ 新增故事</button>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="stories-list-panel" id="storiesListPanel">
+                <div class="empty-state">
+                    <div class="empty-state-icon">📖</div>
+                    <p>請選擇一個故事群</p>
+                </div>
+            </div>
+            <div class="preview-panel" id="previewPanel">
+                <div class="empty-state">
+                    <div class="empty-state-icon">✨</div>
+                    <p>點擊左側故事查看內容</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增故事群的彈窗 -->
+    <div id="categoryModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">新增故事群</div>
+            <form id="categoryForm">
+                <div class="form-group">
+                    <label for="categoryName">故事群名稱：</label>
+                    <input type="text" id="categoryName" required placeholder="輸入故事群名稱...">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeCategoryModal()">取消</button>
+                    <button type="submit" class="btn btn-primary">新增</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 新增/編輯故事的彈窗 -->
+    <div id="storyModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header" id="modalTitle">新增故事</div>
+            <form id="storyForm">
+                <div class="form-group">
+                    <label for="categorySelect">故事群：</label>
+                    <select id="categorySelect" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="storyTitle">故事標題：</label>
+                    <input type="text" id="storyTitle" required placeholder="輸入故事標題...">
+                    <div class="ai-assist-buttons">
+                       
+                    </div>
+                    <div id="titleStatus" class="ai-status"></div>
+                </div>
+                <div class="form-group">
+                    <label for="storyContent">故事內容：</label>
+                    <textarea id="storyContent" required placeholder="在這裡寫下你的故事..."></textarea>
+                    <div class="ai-assist-buttons">
+                        
+                                          </div>
+                    <div id="contentStatus" class="ai-status"></div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">取消</button>
+                    <button type="submit" class="btn btn-primary">儲存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // 資料結構 - 使用陣列保持順序
+        let categoriesOrder = ["熊熊x我", "謝遇x魏瞳憶", "影片平台2.0"];
+        let storiesData = {
+            "熊熊x我": [],
+            "謝遇x魏瞳憶": [],
+            "影片平台2.0": []
+        };
+
+        let currentCategory = null;
+        let currentStoryIndex = null;
+        let editingStory = null;
+        let currentPage = 1;
+        let totalPages = 1;
+        const WORDS_PER_PAGE = 500;
+
+        // 計算字數（包含中英文）
+        function countWords(text) {
+            if (!text) return 0;
+            // 移除空白後計算字數
+            return text.replace(/\s/g, '').length;
+        }
+
+        // 計算故事群總字數
+        function getCategoryTotalWords(categoryName) {
+            if (!storiesData[categoryName]) return 0;
+            return storiesData[categoryName].reduce((total, story) => {
+                return total + countWords(story.content);
+            }, 0);
+        }
+
+        // 將內容分頁
+        function paginateContent(content, wordsPerPage) {
+            const totalWords = countWords(content);
+            totalPages = Math.ceil(totalWords / wordsPerPage);
+            
+            if (totalPages <= 1) {
+                return [content];
+            }
+            
+            const pages = [];
+            let currentPos = 0;
+            
+            for (let i = 0; i < totalPages; i++) {
+                let endPos = currentPos + wordsPerPage;
+                
+                // 找到最接近的段落結尾
+                if (endPos < content.length) {
+                    const nextNewline = content.indexOf('\n', endPos);
+                    if (nextNewline !== -1 && nextNewline - endPos < 100) {
+                        endPos = nextNewline + 1;
+                    }
+                }
+                
+                pages.push(content.substring(currentPos, Math.min(endPos, content.length)));
+                currentPos = endPos;
+            }
+            
+            return pages;
+        }
+
+        // 從 localStorage 載入資料
+        function loadData() {
+            const savedData = localStorage.getItem('storiesData');
+            const savedOrder = localStorage.getItem('categoriesOrder');
+            
+            if (savedData) {
+                storiesData = JSON.parse(savedData);
+            }
+            if (savedOrder) {
+                categoriesOrder = JSON.parse(savedOrder);
+            } else {
+                // 如果沒有保存順序，從storiesData的keys生成
+                categoriesOrder = Object.keys(storiesData);
+            }
+            
+            // 如果有故事群，預設選擇第一個
+            if (categoriesOrder.length > 0) {
+                currentCategory = categoriesOrder[0];
+            }
+        }
+
+        // 儲存資料到 localStorage
+        function saveData() {
+            localStorage.setItem('storiesData', JSON.stringify(storiesData));
+            localStorage.setItem('categoriesOrder', JSON.stringify(categoriesOrder));
+        }
+
+        // 導出資料為JSON檔案
+        function exportData() {
+            const data = {
+                version: "1.0",
+                exportDate: new Date().toISOString(),
+                categoriesOrder: categoriesOrder,
+                storiesData: storiesData
+            };
+            
+            const dataStr = JSON.stringify(data, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `故事收藏_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            alert('資料已匯出！你可以將這個JSON檔案上傳到GitHub或雲端硬碟保存。');
+        }
+
+        // 匯入資料
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    
+                    if (data.categoriesOrder && data.storiesData) {
+                        if (confirm('確定要匯入資料嗎？這將會覆蓋目前的所有故事！')) {
+                            categoriesOrder = data.categoriesOrder;
+                            storiesData = data.storiesData;
+                            currentCategory = categoriesOrder.length > 0 ? categoriesOrder[0] : null;
+                            currentStoryIndex = null;
+                            
+                            saveData();
+                            renderTabs();
+                            renderStoriesList();
+                            hidePreview();
+                            
+                            alert('資料匯入成功！');
+                        }
+                    } else {
+                        alert('檔案格式錯誤！');
+                    }
+                } catch (error) {
+                    alert('讀取檔案失敗：' + error.message);
+                }
+            };
+            reader.readAsText(file);
+            
+            // 重置input以便可以重複匯入同一個檔案
+            event.target.value = '';
+        }
+
+        // 匯入TXT檔案
+        function importTxtFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            if (!currentCategory) {
+                alert('請先選擇一個故事群！');
+                event.target.value = '';
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const content = e.target.result;
+                    
+                    // 嘗試從內容中提取標題
+                    // 方法1: 第一行作為標題，剩下的作為內容
+                    const lines = content.split('\n');
+                    let title = '';
+                    let storyContent = '';
+                    
+                    if (lines.length > 0) {
+                        // 取第一個非空行作為標題
+                        let titleLineIndex = 0;
+                        while (titleLineIndex < lines.length && lines[titleLineIndex].trim() === '') {
+                            titleLineIndex++;
+                        }
+                        
+                        if (titleLineIndex < lines.length) {
+                            title = lines[titleLineIndex].trim();
+                            
+                            // 剩下的內容（跳過標題後的空行）
+                            let contentStartIndex = titleLineIndex + 1;
+                            while (contentStartIndex < lines.length && lines[contentStartIndex].trim() === '') {
+                                contentStartIndex++;
+                            }
+                            
+                            storyContent = lines.slice(contentStartIndex).join('\n').trim();
+                        }
+                    }
+                    
+                    // 如果沒有找到標題，使用檔名
+                    if (!title) {
+                        title = file.name.replace('.txt', '');
+                    }
+                    
+                    // 如果內容為空，把所有內容當作故事內容，使用檔名作為標題
+                    if (!storyContent) {
+                        storyContent = content.trim();
+                        title = file.name.replace('.txt', '');
+                    }
+                    
+                    // 彈出對話框讓使用者確認或修改
+                    const confirmedTitle = prompt('請確認故事標題：', title);
+                    
+                    if (confirmedTitle === null) {
+                        // 使用者取消
+                        event.target.value = '';
+                        return;
+                    }
+                    
+                    const finalTitle = confirmedTitle.trim() || title;
+                    
+                    // 新增故事到當前故事群
+                    storiesData[currentCategory].push({
+                        title: finalTitle,
+                        content: storyContent
+                    });
+                    
+                    currentStoryIndex = storiesData[currentCategory].length - 1;
+                    
+                    saveData();
+                    renderTabs();
+                    renderStoriesList();
+                    showStory(currentStoryIndex);
+                    
+                    alert(`故事「${finalTitle}」已成功匯入到「${currentCategory}」！`);
+                    
+                } catch (error) {
+                    alert('讀取檔案失敗：' + error.message);
+                }
+            };
+            reader.readAsText(file, 'UTF-8');
+            
+            // 重置input
+            event.target.value = '';
+        }
+
+        // 渲染標籤頁（支援拖曳排序）
+        function renderTabs() {
+            const container = document.getElementById('tabsContainer');
+            container.innerHTML = '';
+
+            categoriesOrder.forEach((categoryName, index) => {
+                if (!storiesData[categoryName]) return; // 跳過已刪除的分類
+                
+                const tab = document.createElement('div');
+                tab.className = 'tab' + (categoryName === currentCategory ? ' active' : '');
+                tab.draggable = true;
+                tab.dataset.categoryName = categoryName;
+                tab.dataset.index = index;
+                
+                const storyCount = storiesData[categoryName].length;
+                const totalWords = getCategoryTotalWords(categoryName);
+                
+                tab.innerHTML = `
+                    <span onclick="selectCategory('${categoryName}')">${categoryName}</span>
+                    <span class="story-count" onclick="selectCategory('${categoryName}')" title="${totalWords} 字">${storyCount} 篇</span>
+                `;
+                
+                // 拖曳事件
+                tab.addEventListener('dragstart', handleDragStart);
+                tab.addEventListener('dragover', handleDragOver);
+                tab.addEventListener('drop', handleDrop);
+                tab.addEventListener('dragend', handleDragEnd);
+                tab.addEventListener('dragenter', handleDragEnter);
+                tab.addEventListener('dragleave', handleDragLeave);
+                
+                container.appendChild(tab);
+            });
+            updateCategorySelect();
+        }
+
+        let draggedElement = null;
+
+        function handleDragStart(e) {
+            draggedElement = this;
+            this.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', this.innerHTML);
+        }
+
+        function handleDragOver(e) {
+            if (e.preventDefault) {
+                e.preventDefault();
+            }
+            e.dataTransfer.dropEffect = 'move';
+            return false;
+        }
+
+        function handleDragEnter(e) {
+            if (this !== draggedElement) {
+                this.classList.add('drag-over');
+            }
+        }
+
+        function handleDragLeave(e) {
+            this.classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            if (e.stopPropagation) {
+                e.stopPropagation();
+            }
+            
+            if (draggedElement !== this) {
+                const draggedIndex = parseInt(draggedElement.dataset.index);
+                const targetIndex = parseInt(this.dataset.index);
+                
+                // 重新排序
+                const item = categoriesOrder.splice(draggedIndex, 1)[0];
+                categoriesOrder.splice(targetIndex, 0, item);
+                
+                saveData();
+                renderTabs();
+            }
+            
+            return false;
+        }
+
+        function handleDragEnd(e) {
+            this.classList.remove('dragging');
+            
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => {
+                tab.classList.remove('drag-over');
+            });
+        }
+
+        // 選擇故事群
+        function selectCategory(categoryName) {
+            currentCategory = categoryName;
+            currentStoryIndex = null;
+            renderTabs();
+            renderStoriesList();
+            hidePreview();
+        }
+
+        // 渲染故事列表
+        function renderStoriesList() {
+            const panel = document.getElementById('storiesListPanel');
+            
+            if (!currentCategory || !storiesData[currentCategory]) {
+                panel.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📖</div>
+                        <p>請選擇一個故事群</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const stories = storiesData[currentCategory];
+            const totalWords = getCategoryTotalWords(currentCategory);
+            
+            if (stories.length === 0) {
+                panel.innerHTML = `
+                    <div class="list-header">
+                        <div>
+                            <div class="list-title">${currentCategory}</div>
+                            <div class="list-meta">總字數: ${totalWords.toLocaleString()} 字</div>
+                        </div>
+                        <button class="btn-delete-category" onclick="deleteCategoryFromList()">🗑️ 刪除故事群</button>
+                    </div>
+                    <div class="empty-state">
+                        <div class="empty-state-icon">✨</div>
+                        <p>這個故事群還沒有故事</p>
+                        <p style="margin-top: 10px; color: #bcaaa4; font-size: 0.9em;">點擊上方「+ 新增故事」開始創作</p>
+                    </div>
+                `;
+                return;
+            }
+
+            panel.innerHTML = `
+                <div class="list-header">
+                    <div>
+                        <div class="list-title">${currentCategory}</div>
+                        <div class="list-meta">共 ${stories.length} 篇 · ${totalWords.toLocaleString()} 字</div>
+                    </div>
+                    <button class="btn-delete-category" onclick="deleteCategoryFromList()">🗑️ 刪除故事群</button>
+                </div>
+                <div class="stories-list"></div>
+            `;
+            const storiesList = panel.querySelector('.stories-list');
+
+            stories.forEach((story, index) => {
+                const storyDiv = document.createElement('div');
+                storyDiv.className = 'story-item' + (index === currentStoryIndex ? ' active' : '');
+                storyDiv.draggable = true;
+                storyDiv.dataset.index = index;
+                storyDiv.onclick = () => showStory(index);
+                
+                const wordCount = countWords(story.content);
+                const previewText = story.content.substring(0, 50) + (story.content.length > 50 ? '...' : '');
+                
+                storyDiv.innerHTML = `
+                    <div class="story-title">${story.title}</div>
+                    <div class="story-meta">${wordCount.toLocaleString()} 字</div>
+                    <div class="story-preview-text">${previewText}</div>
+                `;
+                
+                // 拖曳事件
+                storyDiv.addEventListener('dragstart', handleStoryDragStart);
+                storyDiv.addEventListener('dragover', handleStoryDragOver);
+                storyDiv.addEventListener('drop', handleStoryDrop);
+                storyDiv.addEventListener('dragend', handleStoryDragEnd);
+                storyDiv.addEventListener('dragenter', handleStoryDragEnter);
+                storyDiv.addEventListener('dragleave', handleStoryDragLeave);
+                
+                storiesList.appendChild(storyDiv);
+            });
+        }
+
+        // 故事拖曳相關函數
+        let draggedStory = null;
+
+        function handleStoryDragStart(e) {
+            draggedStory = this;
+            this.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        }
+
+        function handleStoryDragOver(e) {
+            if (e.preventDefault) {
+                e.preventDefault();
+            }
+            e.dataTransfer.dropEffect = 'move';
+            return false;
+        }
+
+        function handleStoryDragEnter(e) {
+            if (this !== draggedStory) {
+                this.classList.add('drag-over');
+            }
+        }
+
+        function handleStoryDragLeave(e) {
+            this.classList.remove('drag-over');
+        }
+
+        function handleStoryDrop(e) {
+            if (e.stopPropagation) {
+                e.stopPropagation();
+            }
+            
+            if (draggedStory !== this) {
+                const draggedIndex = parseInt(draggedStory.dataset.index);
+                const targetIndex = parseInt(this.dataset.index);
+                
+                // 重新排序故事
+                const stories = storiesData[currentCategory];
+                const item = stories.splice(draggedIndex, 1)[0];
+                stories.splice(targetIndex, 0, item);
+                
+                // 更新當前選中的索引
+                if (currentStoryIndex === draggedIndex) {
+                    currentStoryIndex = targetIndex;
+                } else if (draggedIndex < currentStoryIndex && targetIndex >= currentStoryIndex) {
+                    currentStoryIndex--;
+                } else if (draggedIndex > currentStoryIndex && targetIndex <= currentStoryIndex) {
+                    currentStoryIndex++;
+                }
+                
+                saveData();
+                renderStoriesList();
+                
+                // 如果有預覽，重新顯示
+                if (currentStoryIndex !== null) {
+                    showStory(currentStoryIndex);
+                }
+            }
+            
+            return false;
+        }
+
+        function handleStoryDragEnd(e) {
+            this.classList.remove('dragging');
+            
+            const items = document.querySelectorAll('.story-item');
+            items.forEach(item => {
+                item.classList.remove('drag-over');
+            });
+        }
+
+        // 顯示故事預覽
+        function showStory(index, page = 1) {
+            currentStoryIndex = index;
+            currentPage = page;
+            const story = storiesData[currentCategory][index];
+            
+            const panel = document.getElementById('previewPanel');
+            const listPanel = document.getElementById('storiesListPanel');
+            
+            panel.className = 'preview-panel active';
+            listPanel.className = 'stories-list-panel compact';
+            
+            const wordCount = countWords(story.content);
+            const pages = paginateContent(story.content, WORDS_PER_PAGE);
+            totalPages = pages.length;
+            
+            // 確保頁碼在有效範圍內
+            if (currentPage > totalPages) currentPage = totalPages;
+            if (currentPage < 1) currentPage = 1;
+            
+            const currentContent = pages[currentPage - 1] || story.content;
+            
+            panel.innerHTML = `
+                <div class="preview-header">
+                    <div class="preview-title">${story.title}</div>
+                    <div class="preview-actions">
+                        <button class="btn btn-edit" onclick="editStory(${index})">✏️ 編輯</button>
+                        <button class="btn btn-delete" onclick="deleteStory(${index})">🗑️ 刪除</button>
+                        <button class="btn btn-export" onclick="exportStoryAsTxt(${index})">📄 匯出TXT</button>
+                    </div>
+                </div>
+                <div style="color: #a1887f; font-size: 0.9em; margin-bottom: 20px;">
+                    總共 ${wordCount.toLocaleString()} 字
+                </div>
+                <div class="preview-content">${currentContent}</div>
+                ${totalPages > 1 ? `
+                    <div class="pagination-controls">
+                        <button onclick="showStory(${index}, ${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>
+                            ← 上一頁
+                        </button>
+                        <span class="page-info">${currentPage} / ${totalPages}</span>
+                        <button onclick="showStory(${index}, ${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>
+                            下一頁 →
+                        </button>
+                    </div>
+                ` : ''}
+            `;
+            
+            // 將預覽面板滾動到最上面
+            panel.scrollTop = 0;
+            
+            renderStoriesList(); // 重新渲染列表以更新active狀態
+        }
+
+        // 匯出單個故事為TXT
+        function exportStoryAsTxt(index) {
+            const story = storiesData[currentCategory][index];
+            const content = `${story.title}\n\n${story.content}`;
+            
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            
+            // 清理檔名，移除特殊字符
+            const cleanTitle = story.title.replace(/[<>:"/\\|?*]/g, '_');
+            link.download = `${cleanTitle}.txt`;
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        // 批次匯出整個故事群為單一TXT檔案
+        function exportCategoryAsTxt() {
+            if (!currentCategory) {
+                alert('請先選擇一個故事群！');
+                return;
+            }
+
+            const stories = storiesData[currentCategory];
+            if (stories.length === 0) {
+                alert('這個故事群沒有故事可以匯出！');
+                return;
+            }
+
+            // 組合所有故事
+            let content = `${currentCategory}\n`;
+            content += '='.repeat(currentCategory.length * 2) + '\n\n';
+            
+            stories.forEach((story, index) => {
+                content += `【${index + 1}】${story.title}\n`;
+                content += '-'.repeat((story.title.length + 5) * 2) + '\n\n';
+                content += story.content;
+                content += '\n\n\n';
+            });
+
+            const totalWords = getCategoryTotalWords(currentCategory);
+            content += `\n\n--- 統計資訊 ---\n`;
+            content += `故事數量: ${stories.length} 篇\n`;
+            content += `總字數: ${totalWords.toLocaleString()} 字\n`;
+
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            
+            const cleanName = currentCategory.replace(/[<>:"/\\|?*]/g, '_');
+            link.download = `${cleanName}_合集.txt`;
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            alert(`已匯出「${currentCategory}」的 ${stories.length} 篇故事！`);
+        }
+
+        // 隱藏預覽
+        function hidePreview() {
+            const panel = document.getElementById('previewPanel');
+            const listPanel = document.getElementById('storiesListPanel');
+            
+            panel.className = 'preview-panel';
+            listPanel.className = 'stories-list-panel';
+            
+            panel.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">✨</div>
+                    <p>點擊左側故事查看內容</p>
+                </div>
+            `;
+        }
+
+        // 開啟新增故事群彈窗
+        function openAddCategoryModal() {
+            document.getElementById('categoryName').value = '';
+            document.getElementById('categoryModal').classList.add('active');
+        }
+
+        // 關閉故事群彈窗
+        function closeCategoryModal() {
+            document.getElementById('categoryModal').classList.remove('active');
+        }
+
+        // 新增故事群
+        document.getElementById('categoryForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const categoryName = document.getElementById('categoryName').value.trim();
+            
+            if (storiesData[categoryName]) {
+                alert('這個故事群已經存在！');
+                return;
+            }
+
+            storiesData[categoryName] = [];
+            categoriesOrder.push(categoryName); // 添加到順序陣列
+            currentCategory = categoryName;
+            currentStoryIndex = null;
+            saveData();
+            renderTabs();
+            renderStoriesList();
+            hidePreview();
+            closeCategoryModal();
+        });
+
+        // 刪除故事群
+        function deleteCategory(categoryName, event) {
+            event.stopPropagation();
+            
+            const storyCount = storiesData[categoryName].length;
+            const message = storyCount > 0 
+                ? `確定要刪除「${categoryName}」嗎？這個故事群有 ${storyCount} 篇故事，刪除後將無法復原！`
+                : `確定要刪除「${categoryName}」嗎？`;
+            
+            if (confirm(message)) {
+                delete storiesData[categoryName];
+                categoriesOrder = categoriesOrder.filter(name => name !== categoryName); // 從順序陣列移除
+                
+                // 如果刪除的是當前選中的故事群，選擇另一個
+                if (currentCategory === categoryName) {
+                    currentCategory = categoriesOrder.length > 0 ? categoriesOrder[0] : null;
+                    currentStoryIndex = null;
+                }
+                
+                saveData();
+                renderTabs();
+                renderStoriesList();
+                hidePreview();
+            }
+        }
+
+        // 從列表頁面刪除當前故事群
+        function deleteCategoryFromList() {
+            if (!currentCategory) return;
+            
+            const storyCount = storiesData[currentCategory].length;
+            const message = storyCount > 0 
+                ? `確定要刪除「${currentCategory}」嗎？\n\n這個故事群有 ${storyCount} 篇故事，刪除後將無法復原！`
+                : `確定要刪除「${currentCategory}」嗎？`;
+            
+            if (confirm(message)) {
+                delete storiesData[currentCategory];
+                categoriesOrder = categoriesOrder.filter(name => name !== currentCategory); // 從順序陣列移除
+                
+                // 選擇另一個故事群
+                currentCategory = categoriesOrder.length > 0 ? categoriesOrder[0] : null;
+                currentStoryIndex = null;
+                
+                saveData();
+                renderTabs();
+                renderStoriesList();
+                hidePreview();
+            }
+        }
+
+        // 開啟新增故事彈窗
+        function openAddStoryModal() {
+            if (!currentCategory) {
+                alert('請先選擇一個故事群！');
+                return;
+            }
+
+            editingStory = null;
+            document.getElementById('modalTitle').textContent = '新增故事';
+            document.getElementById('categorySelect').value = currentCategory;
+            document.getElementById('storyTitle').value = '';
+            document.getElementById('storyContent').value = '';
+            document.getElementById('storyModal').classList.add('active');
+        }
+
+        // 編輯故事
+        function editStory(index) {
+            editingStory = index;
+            const story = storiesData[currentCategory][index];
+            
+            document.getElementById('modalTitle').textContent = '編輯故事';
+            document.getElementById('categorySelect').value = currentCategory;
+            document.getElementById('storyTitle').value = story.title;
+            document.getElementById('storyContent').value = story.content;
+            document.getElementById('storyModal').classList.add('active');
+        }
+
+        // 刪除故事
+        function deleteStory(index) {
+            if (confirm('確定要刪除這篇故事嗎？')) {
+                storiesData[currentCategory].splice(index, 1);
+                currentStoryIndex = null;
+                saveData();
+                renderTabs();
+                renderStoriesList();
+                hidePreview();
+            }
+        }
+
+        // 關閉故事彈窗
+        function closeModal() {
+            document.getElementById('storyModal').classList.remove('active');
+        }
+
+        // 更新分類選擇器
+        function updateCategorySelect() {
+            const select = document.getElementById('categorySelect');
+            select.innerHTML = '';
+            
+            categoriesOrder.forEach(categoryName => {
+                if (storiesData[categoryName]) {
+                    const option = document.createElement('option');
+                    option.value = categoryName;
+                    option.textContent = categoryName;
+                    select.appendChild(option);
+                }
+            });
+        }
+
+        // 處理故事表單提交
+        document.getElementById('storyForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const category = document.getElementById('categorySelect').value;
+            const title = document.getElementById('storyTitle').value;
+            const content = document.getElementById('storyContent').value;
+
+            if (editingStory !== null) {
+                // 編輯模式
+                const index = editingStory;
+                
+                // 如果分類改變了，需要移動故事
+                if (currentCategory !== category) {
+                    storiesData[currentCategory].splice(index, 1);
+                    storiesData[category].push({ title, content });
+                    currentCategory = category;
+                    currentStoryIndex = storiesData[category].length - 1;
+                } else {
+                    storiesData[category][index] = { title, content };
+                    currentStoryIndex = index;
+                }
+            } else {
+                // 新增模式
+                storiesData[category].push({ title, content });
+                currentCategory = category;
+                currentStoryIndex = storiesData[category].length - 1;
+            }
+
+            saveData();
+            renderTabs();
+            renderStoriesList();
+            showStory(currentStoryIndex);
+            closeModal();
+        });
+
+        // 點擊彈窗外部關閉
+        document.getElementById('storyModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+
+        document.getElementById('categoryModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeCategoryModal();
+            }
+        });
+
+        // 初始化
+        loadData();
+        renderTabs();
+        renderStoriesList();
+
+            </script>
+</body>
+</html>
