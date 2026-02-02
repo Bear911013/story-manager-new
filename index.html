@@ -160,6 +160,10 @@
             display: none;
         }
 
+        #importTxtFile {
+            display: none;
+        }
+
         .content {
             display: flex;
             flex: 1;
@@ -245,11 +249,17 @@
             font-size: 1.05em;
             font-weight: bold;
             color: #5d4037;
-            margin-bottom: 8px;
+            margin-bottom: 5px;
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
+        }
+
+        .story-meta {
+            font-size: 0.8em;
+            color: #a1887f;
+            margin-bottom: 8px;
         }
 
         .story-preview-text {
@@ -260,6 +270,17 @@
             -webkit-box-orient: vertical;
             overflow: hidden;
             line-height: 1.4;
+        }
+
+        .story-item.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+
+        .story-item.drag-over {
+            border-left-color: #ff6b4a;
+            background: #ffe8e0;
+            transform: translateX(10px) scale(1.02);
         }
 
         .preview-panel {
@@ -303,6 +324,51 @@
             line-height: 2;
             white-space: pre-wrap;
             font-size: 1.05em;
+        }
+
+        .pagination-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #ffe4d6;
+        }
+
+        .pagination-controls button {
+            padding: 8px 20px;
+            background: #ff9a76;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.95em;
+            transition: all 0.3s;
+        }
+
+        .pagination-controls button:hover:not(:disabled) {
+            background: #ff8a65;
+            transform: translateY(-2px);
+        }
+
+        .pagination-controls button:disabled {
+            background: #d7ccc8;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .page-info {
+            color: #8d6e63;
+            font-size: 0.95em;
+            min-width: 100px;
+            text-align: center;
+        }
+
+        .list-meta {
+            font-size: 0.85em;
+            color: #a1887f;
+            margin-top: 5px;
         }
 
         .empty-state {
@@ -435,6 +501,38 @@
             line-height: 1.6;
         }
 
+        .ai-assist-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .btn-ai {
+            background: #9575cd;
+            color: white;
+            padding: 8px 16px;
+            font-size: 0.9em;
+        }
+
+        .btn-ai:hover {
+            background: #7e57c2;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(149, 117, 205, 0.3);
+        }
+
+        .btn-ai:disabled {
+            background: #d1c4e9;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .ai-status {
+            font-size: 0.85em;
+            color: #9575cd;
+            margin-top: 8px;
+            font-style: italic;
+        }
+
         .modal-actions {
             display: flex;
             gap: 10px;
@@ -473,9 +571,12 @@
         <div class="toolbar">
             <div class="tabs-container" id="tabsContainer"></div>
             <div class="toolbar-actions">
+                <button class="btn btn-export" onclick="exportCategoryAsTxt()">📦 匯出故事群</button>
                 <button class="btn btn-export" onclick="exportData()">📥 匯出資料</button>
                 <label for="importFile" class="btn btn-import" style="margin: 0; cursor: pointer;">📤 匯入資料</label>
                 <input type="file" id="importFile" accept=".json" onchange="importData(event)">
+                <label for="importTxtFile" class="btn btn-import" style="margin: 0; cursor: pointer;">📝 匯入TXT</label>
+                <input type="file" id="importTxtFile" accept=".txt" onchange="importTxtFile(event)">
                 <button class="btn btn-add" onclick="openAddCategoryModal()">+ 新增故事群</button>
                 <button class="btn btn-add" onclick="openAddStoryModal()">+ 新增故事</button>
             </div>
@@ -526,10 +627,18 @@
                 <div class="form-group">
                     <label for="storyTitle">故事標題：</label>
                     <input type="text" id="storyTitle" required placeholder="輸入故事標題...">
+                    <div class="ai-assist-buttons">
+                       
+                    </div>
+                    <div id="titleStatus" class="ai-status"></div>
                 </div>
                 <div class="form-group">
                     <label for="storyContent">故事內容：</label>
                     <textarea id="storyContent" required placeholder="在這裡寫下你的故事..."></textarea>
+                    <div class="ai-assist-buttons">
+                        
+                                          </div>
+                    <div id="contentStatus" class="ai-status"></div>
                 </div>
                 <div class="modal-actions">
                     <button type="button" class="btn btn-secondary" onclick="closeModal()">取消</button>
@@ -551,6 +660,54 @@
         let currentCategory = null;
         let currentStoryIndex = null;
         let editingStory = null;
+        let currentPage = 1;
+        let totalPages = 1;
+        const WORDS_PER_PAGE = 500;
+
+        // 計算字數（包含中英文）
+        function countWords(text) {
+            if (!text) return 0;
+            // 移除空白後計算字數
+            return text.replace(/\s/g, '').length;
+        }
+
+        // 計算故事群總字數
+        function getCategoryTotalWords(categoryName) {
+            if (!storiesData[categoryName]) return 0;
+            return storiesData[categoryName].reduce((total, story) => {
+                return total + countWords(story.content);
+            }, 0);
+        }
+
+        // 將內容分頁
+        function paginateContent(content, wordsPerPage) {
+            const totalWords = countWords(content);
+            totalPages = Math.ceil(totalWords / wordsPerPage);
+            
+            if (totalPages <= 1) {
+                return [content];
+            }
+            
+            const pages = [];
+            let currentPos = 0;
+            
+            for (let i = 0; i < totalPages; i++) {
+                let endPos = currentPos + wordsPerPage;
+                
+                // 找到最接近的段落結尾
+                if (endPos < content.length) {
+                    const nextNewline = content.indexOf('\n', endPos);
+                    if (nextNewline !== -1 && nextNewline - endPos < 100) {
+                        endPos = nextNewline + 1;
+                    }
+                }
+                
+                pages.push(content.substring(currentPos, Math.min(endPos, content.length)));
+                currentPos = endPos;
+            }
+            
+            return pages;
+        }
 
         // 從 localStorage 載入資料
         function loadData() {
@@ -640,6 +797,95 @@
             event.target.value = '';
         }
 
+        // 匯入TXT檔案
+        function importTxtFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            if (!currentCategory) {
+                alert('請先選擇一個故事群！');
+                event.target.value = '';
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const content = e.target.result;
+                    
+                    // 嘗試從內容中提取標題
+                    // 方法1: 第一行作為標題，剩下的作為內容
+                    const lines = content.split('\n');
+                    let title = '';
+                    let storyContent = '';
+                    
+                    if (lines.length > 0) {
+                        // 取第一個非空行作為標題
+                        let titleLineIndex = 0;
+                        while (titleLineIndex < lines.length && lines[titleLineIndex].trim() === '') {
+                            titleLineIndex++;
+                        }
+                        
+                        if (titleLineIndex < lines.length) {
+                            title = lines[titleLineIndex].trim();
+                            
+                            // 剩下的內容（跳過標題後的空行）
+                            let contentStartIndex = titleLineIndex + 1;
+                            while (contentStartIndex < lines.length && lines[contentStartIndex].trim() === '') {
+                                contentStartIndex++;
+                            }
+                            
+                            storyContent = lines.slice(contentStartIndex).join('\n').trim();
+                        }
+                    }
+                    
+                    // 如果沒有找到標題，使用檔名
+                    if (!title) {
+                        title = file.name.replace('.txt', '');
+                    }
+                    
+                    // 如果內容為空，把所有內容當作故事內容，使用檔名作為標題
+                    if (!storyContent) {
+                        storyContent = content.trim();
+                        title = file.name.replace('.txt', '');
+                    }
+                    
+                    // 彈出對話框讓使用者確認或修改
+                    const confirmedTitle = prompt('請確認故事標題：', title);
+                    
+                    if (confirmedTitle === null) {
+                        // 使用者取消
+                        event.target.value = '';
+                        return;
+                    }
+                    
+                    const finalTitle = confirmedTitle.trim() || title;
+                    
+                    // 新增故事到當前故事群
+                    storiesData[currentCategory].push({
+                        title: finalTitle,
+                        content: storyContent
+                    });
+                    
+                    currentStoryIndex = storiesData[currentCategory].length - 1;
+                    
+                    saveData();
+                    renderTabs();
+                    renderStoriesList();
+                    showStory(currentStoryIndex);
+                    
+                    alert(`故事「${finalTitle}」已成功匯入到「${currentCategory}」！`);
+                    
+                } catch (error) {
+                    alert('讀取檔案失敗：' + error.message);
+                }
+            };
+            reader.readAsText(file, 'UTF-8');
+            
+            // 重置input
+            event.target.value = '';
+        }
+
         // 渲染標籤頁（支援拖曳排序）
         function renderTabs() {
             const container = document.getElementById('tabsContainer');
@@ -655,10 +901,11 @@
                 tab.dataset.index = index;
                 
                 const storyCount = storiesData[categoryName].length;
+                const totalWords = getCategoryTotalWords(categoryName);
                 
                 tab.innerHTML = `
                     <span onclick="selectCategory('${categoryName}')">${categoryName}</span>
-                    <span class="story-count" onclick="selectCategory('${categoryName}')">${storyCount}</span>
+                    <span class="story-count" onclick="selectCategory('${categoryName}')" title="${totalWords} 字">${storyCount} 篇</span>
                 `;
                 
                 // 拖曳事件
@@ -754,11 +1001,15 @@
             }
 
             const stories = storiesData[currentCategory];
+            const totalWords = getCategoryTotalWords(currentCategory);
             
             if (stories.length === 0) {
                 panel.innerHTML = `
                     <div class="list-header">
-                        <div class="list-title">${currentCategory}</div>
+                        <div>
+                            <div class="list-title">${currentCategory}</div>
+                            <div class="list-meta">總字數: ${totalWords.toLocaleString()} 字</div>
+                        </div>
                         <button class="btn-delete-category" onclick="deleteCategoryFromList()">🗑️ 刪除故事群</button>
                     </div>
                     <div class="empty-state">
@@ -772,7 +1023,10 @@
 
             panel.innerHTML = `
                 <div class="list-header">
-                    <div class="list-title">${currentCategory}</div>
+                    <div>
+                        <div class="list-title">${currentCategory}</div>
+                        <div class="list-meta">共 ${stories.length} 篇 · ${totalWords.toLocaleString()} 字</div>
+                    </div>
                     <button class="btn-delete-category" onclick="deleteCategoryFromList()">🗑️ 刪除故事群</button>
                 </div>
                 <div class="stories-list"></div>
@@ -782,22 +1036,106 @@
             stories.forEach((story, index) => {
                 const storyDiv = document.createElement('div');
                 storyDiv.className = 'story-item' + (index === currentStoryIndex ? ' active' : '');
+                storyDiv.draggable = true;
+                storyDiv.dataset.index = index;
                 storyDiv.onclick = () => showStory(index);
                 
-                // 取得內容預覽（前50字）
+                const wordCount = countWords(story.content);
                 const previewText = story.content.substring(0, 50) + (story.content.length > 50 ? '...' : '');
                 
                 storyDiv.innerHTML = `
                     <div class="story-title">${story.title}</div>
+                    <div class="story-meta">${wordCount.toLocaleString()} 字</div>
                     <div class="story-preview-text">${previewText}</div>
                 `;
+                
+                // 拖曳事件
+                storyDiv.addEventListener('dragstart', handleStoryDragStart);
+                storyDiv.addEventListener('dragover', handleStoryDragOver);
+                storyDiv.addEventListener('drop', handleStoryDrop);
+                storyDiv.addEventListener('dragend', handleStoryDragEnd);
+                storyDiv.addEventListener('dragenter', handleStoryDragEnter);
+                storyDiv.addEventListener('dragleave', handleStoryDragLeave);
+                
                 storiesList.appendChild(storyDiv);
             });
         }
 
+        // 故事拖曳相關函數
+        let draggedStory = null;
+
+        function handleStoryDragStart(e) {
+            draggedStory = this;
+            this.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        }
+
+        function handleStoryDragOver(e) {
+            if (e.preventDefault) {
+                e.preventDefault();
+            }
+            e.dataTransfer.dropEffect = 'move';
+            return false;
+        }
+
+        function handleStoryDragEnter(e) {
+            if (this !== draggedStory) {
+                this.classList.add('drag-over');
+            }
+        }
+
+        function handleStoryDragLeave(e) {
+            this.classList.remove('drag-over');
+        }
+
+        function handleStoryDrop(e) {
+            if (e.stopPropagation) {
+                e.stopPropagation();
+            }
+            
+            if (draggedStory !== this) {
+                const draggedIndex = parseInt(draggedStory.dataset.index);
+                const targetIndex = parseInt(this.dataset.index);
+                
+                // 重新排序故事
+                const stories = storiesData[currentCategory];
+                const item = stories.splice(draggedIndex, 1)[0];
+                stories.splice(targetIndex, 0, item);
+                
+                // 更新當前選中的索引
+                if (currentStoryIndex === draggedIndex) {
+                    currentStoryIndex = targetIndex;
+                } else if (draggedIndex < currentStoryIndex && targetIndex >= currentStoryIndex) {
+                    currentStoryIndex--;
+                } else if (draggedIndex > currentStoryIndex && targetIndex <= currentStoryIndex) {
+                    currentStoryIndex++;
+                }
+                
+                saveData();
+                renderStoriesList();
+                
+                // 如果有預覽，重新顯示
+                if (currentStoryIndex !== null) {
+                    showStory(currentStoryIndex);
+                }
+            }
+            
+            return false;
+        }
+
+        function handleStoryDragEnd(e) {
+            this.classList.remove('dragging');
+            
+            const items = document.querySelectorAll('.story-item');
+            items.forEach(item => {
+                item.classList.remove('drag-over');
+            });
+        }
+
         // 顯示故事預覽
-        function showStory(index) {
+        function showStory(index, page = 1) {
             currentStoryIndex = index;
+            currentPage = page;
             const story = storiesData[currentCategory][index];
             
             const panel = document.getElementById('previewPanel');
@@ -806,18 +1144,108 @@
             panel.className = 'preview-panel active';
             listPanel.className = 'stories-list-panel compact';
             
+            const wordCount = countWords(story.content);
+            const pages = paginateContent(story.content, WORDS_PER_PAGE);
+            totalPages = pages.length;
+            
+            // 確保頁碼在有效範圍內
+            if (currentPage > totalPages) currentPage = totalPages;
+            if (currentPage < 1) currentPage = 1;
+            
+            const currentContent = pages[currentPage - 1] || story.content;
+            
             panel.innerHTML = `
                 <div class="preview-header">
                     <div class="preview-title">${story.title}</div>
                     <div class="preview-actions">
                         <button class="btn btn-edit" onclick="editStory(${index})">✏️ 編輯</button>
                         <button class="btn btn-delete" onclick="deleteStory(${index})">🗑️ 刪除</button>
+                        <button class="btn btn-export" onclick="exportStoryAsTxt(${index})">📄 匯出TXT</button>
                     </div>
                 </div>
-                <div class="preview-content">${story.content}</div>
+                <div style="color: #a1887f; font-size: 0.9em; margin-bottom: 20px;">
+                    總共 ${wordCount.toLocaleString()} 字
+                </div>
+                <div class="preview-content">${currentContent}</div>
+                ${totalPages > 1 ? `
+                    <div class="pagination-controls">
+                        <button onclick="showStory(${index}, ${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>
+                            ← 上一頁
+                        </button>
+                        <span class="page-info">${currentPage} / ${totalPages}</span>
+                        <button onclick="showStory(${index}, ${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>
+                            下一頁 →
+                        </button>
+                    </div>
+                ` : ''}
             `;
             
             renderStoriesList(); // 重新渲染列表以更新active狀態
+        }
+
+        // 匯出單個故事為TXT
+        function exportStoryAsTxt(index) {
+            const story = storiesData[currentCategory][index];
+            const content = `${story.title}\n\n${story.content}`;
+            
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            
+            // 清理檔名，移除特殊字符
+            const cleanTitle = story.title.replace(/[<>:"/\\|?*]/g, '_');
+            link.download = `${cleanTitle}.txt`;
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        // 批次匯出整個故事群為單一TXT檔案
+        function exportCategoryAsTxt() {
+            if (!currentCategory) {
+                alert('請先選擇一個故事群！');
+                return;
+            }
+
+            const stories = storiesData[currentCategory];
+            if (stories.length === 0) {
+                alert('這個故事群沒有故事可以匯出！');
+                return;
+            }
+
+            // 組合所有故事
+            let content = `${currentCategory}\n`;
+            content += '='.repeat(currentCategory.length * 2) + '\n\n';
+            
+            stories.forEach((story, index) => {
+                content += `【${index + 1}】${story.title}\n`;
+                content += '-'.repeat((story.title.length + 5) * 2) + '\n\n';
+                content += story.content;
+                content += '\n\n\n';
+            });
+
+            const totalWords = getCategoryTotalWords(currentCategory);
+            content += `\n\n--- 統計資訊 ---\n`;
+            content += `故事數量: ${stories.length} 篇\n`;
+            content += `總字數: ${totalWords.toLocaleString()} 字\n`;
+
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            
+            const cleanName = currentCategory.replace(/[<>:"/\\|?*]/g, '_');
+            link.download = `${cleanName}_合集.txt`;
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            alert(`已匯出「${currentCategory}」的 ${stories.length} 篇故事！`);
         }
 
         // 隱藏預覽
@@ -1031,6 +1459,7 @@
         loadData();
         renderTabs();
         renderStoriesList();
-    </script>
+
+            </script>
 </body>
 </html>
